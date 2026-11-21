@@ -1,4 +1,4 @@
-﻿e97109a80089a67953cc751bb9679f145f510951e65b6c25f7705f06e273f7ff  convex/_generated/api.d.ts
+e97109a80089a67953cc751bb9679f145f510951e65b6c25f7705f06e273f7ff  convex/_generated/api.d.ts
 fbe8bcf881ddae62c14ae6e6fe286cae256714b761dfa0682958e7fb0e4d8940  convex/_generated/api.js
 5df8434fdc274c6421f16b2db48b54eeba1781929298cee95424fd4b03cd2f87  convex/_generated/dataModel.d.ts
 712ca7c11b92c0d13afd43e857537bcc421aaa1f6a64b0119e218a65af8b58e2  convex/_generated/server.d.ts

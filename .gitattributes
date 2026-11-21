@@ -1,0 +1,4 @@
+﻿# Ship bytes exactly as produced: this repository carries the verified handoff
+# archive and its SHA256SUMS.txt is computed over the original file bytes.
+# Disable git's end-of-line conversion so a clone is byte-identical.
+* -text
