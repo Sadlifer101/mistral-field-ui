@@ -1,7 +1,8 @@
 # Functionality Checklist — Mistral Frontend
 
-Scope: the frontend in this package (`mistral-ui-package/mistral-ui`), against the existing Convex contract
-documented in `INTEGRATION_README.md` §11.
+Scope: the frontend in this repository (`mistral-ui-package/mistral-ui`), against the existing Convex contract
+documented in [`CONVEX_CONTRACT_MAP.md`](./CONVEX_CONTRACT_MAP.md). Setup and verification steps live in
+[`INTEGRATION_CHECKLIST.md`](./INTEGRATION_CHECKLIST.md).
 
 ## How to read the status column
 
