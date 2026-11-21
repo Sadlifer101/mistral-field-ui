@@ -1,0 +1,1750 @@
+/* ============================================================================
+   Mistral Field — nurse surface design system
+   ----------------------------------------------------------------------------
+   OWNER: Agent 1. Imported exactly once, from `NurseShell.tsx`
+   (`import "./nurse.css";`). Everything is scoped under `.nv-app`, so the
+   specialist console, auth pages and onboarding keep their own language.
+
+   LANGUAGE
+   Warm cream paper, sage chips, deep forest actions, soft 1px hairlines,
+   gentle radii, near-flat shadows. No glassmorphism, no backdrop blur, no
+   decorative gradients: blur + translucency is the specialist console's
+   material (src/theme/glass.ts) and must not leak into the nurse surface.
+
+   PROVENANCE (UI Forge, read through the MCP vault, adapted not copied)
+   - atelier-vale/cinematic-hero ->
+       packages/boilerplates/atelier-vale-hero/src/components/FilmFrame.tsx,
+       .../src/hooks/useHeroLoop.ts, .../src/media.ts, .../src/components/Reveal.tsx
+     Carried over: the poster-under-live-film layering + fade-in hook
+     (`.nv-backdrop__video[data-ready="true"]`), the shared hero easing
+     `[0.16, 1, 0.3, 1]` (= `--nv-ease`), and the "settled" reduced-motion
+     choreography pattern.
+   - editorial-stagger -> packages/motion/editorial-stagger/index.tsx
+     Carried over: parent/child variant stagger with `staggerChildren`, and the
+     `initial={settled ? false : "hidden"}` trick so a reduced-motion user gets
+     the final state with no transition.
+   - liquid-glass -> packages/effects/liquid-glass/styles.css (inspected for its
+     reduced-transparency fallback ONLY). No glass styling is used here; the
+     opaque-surface fallback idea is expressed as `prefers-contrast: more` on the
+     backdrop veil below.
+
+   SIZES — kept here so every screen agrees (mobile first; verified mentally at
+   320 / 360 / 375 / 390 / 414 / 430 px and 768 px):
+     page title        26–30px / 800
+     section title     17–18px / 700
+     body              14–15px, line-height 1.55
+     inputs            52px tall, 16px text  <-- 16px prevents iOS focus zoom
+     buttons           52px tall (44px minimum anywhere; `--sm` is 44px)
+     textarea          96px min
+     chips/badges      44px target / 26px pill
+   ========================================================================== */
+
+/* ------------------------------------------------------------------ tokens */
+
+.nv-app {
+  /* Surfaces */
+  --nv-paper: #faf6ea;
+  --nv-paper-2: #f3eddc;
+  /* Ink */
+  --nv-ink: #26301b;
+  --nv-ink-2: #5b6650;
+  --nv-line: rgba(46, 58, 32, 0.14);
+  /* Greens */
+  --nv-sage: #e7e4ce;
+  --nv-sage-2: #dce0c4;
+  --nv-forest: #33471f;
+  --nv-forest-ink: #f6f3e6;
+  --nv-olive: #566b3e;
+  /* Status */
+  --nv-ok: #3e5c28;
+  --nv-warn-bg: #f6e3b4;
+  --nv-warn-ink: #7a5210;
+  --nv-info-bg: #d8e9f3;
+  --nv-info-ink: #1f5f7a;
+  --nv-danger: #b3402f;
+  /* Radii / depth / motion */
+  --nv-r-sm: 10px;
+  --nv-r: 16px;
+  --nv-r-lg: 24px;
+  --nv-shadow: 0 10px 30px -18px rgba(38, 54, 22, 0.55);
+  --nv-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Derived (still `--nv-` so nothing collides with console tokens).
+     `--nv-forest-lift` is a blend of two contract tokens (--nv-olive and
+     --nv-forest), no new hue: the home cards in reference image 1 are a touch
+     lighter than the primary button fill, and this reproduces that. */
+  --nv-forest-lift: #4a5b33; /* solid fallback where color-mix() is unavailable */
+  --nv-forest-lift: color-mix(in srgb, var(--nv-olive) 62%, var(--nv-forest));
+  --nv-focus: var(--nv-olive);
+  --nv-page-gutter: 18px;
+  --nv-step-dot: 44px;
+
+  position: relative;
+  isolation: isolate; /* keeps the -1 backdrop above our own background */
+  display: block;
+  inline-size: 100%;
+  min-block-size: 100vh;
+  min-block-size: 100dvh;
+  overflow-x: clip; /* `clip`, never `hidden`: hidden would break sticky footers */
+  background-color: var(--nv-paper);
+  color: var(--nv-ink);
+  font-family: var(--font-sans, "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  accent-color: var(--nv-olive);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nv-app *,
+.nv-app *::before,
+.nv-app *::after {
+  box-sizing: border-box;
+}
+
+/* Tailwind's preflight already resets these; repeated at zero specificity so
+   the file still holds up if a screen is rendered without it. */
+.nv-app :where(p, h1, h2, h3, h4, ul, ol, figure) {
+  margin: 0;
+}
+
+.nv-app :where(h1, h2, h3, h4) {
+  font-family: inherit;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--nv-ink);
+}
+
+.nv-app :where(button, input, select, textarea) {
+  font-family: inherit;
+}
+
+/* 44px minimum touch target for anything interactive. Inline <a> is unaffected
+   (min-height does not apply to non-replaced inline boxes). */
+.nv-app :where(button, [role="button"], a[href]) {
+  min-block-size: 44px;
+}
+
+/* ---------------------------------------------------------------- backdrop */
+
+.nv-app .nv-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  background-color: var(--nv-paper);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+/* The layer the lead's poster paints; video sits above it and fades in only
+   after `canplay` (see MeadowBackdrop). A failure never removes the poster. */
+.nv-app .nv-backdrop__video {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 900ms var(--nv-ease);
+  background-color: transparent;
+}
+
+.nv-app .nv-backdrop__video[data-ready="true"] {
+  opacity: 1;
+}
+
+/* Contrast veil: header text and the home cards live directly on the meadow,
+   so the top and bottom of the painting get a warm paper wash. Functional, not
+   decorative — the middle of the meadow stays untouched. */
+.nv-app .nv-backdrop__veil {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(250, 246, 234, 0.72) 0%,
+      rgba(250, 246, 234, 0.34) 15%,
+      rgba(250, 246, 234, 0.08) 36%,
+      rgba(250, 246, 234, 0.06) 60%,
+      rgba(250, 246, 234, 0.3) 84%,
+      rgba(250, 246, 234, 0.54) 100%
+    );
+}
+
+@media (prefers-contrast: more) {
+  .nv-app .nv-backdrop__veil {
+    background: rgba(250, 246, 234, 0.82);
+  }
+}
+
+/* --------------------------------------------------------- shell + header */
+
+.nv-app .nv-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  inline-size: 100%;
+  max-inline-size: 480px;
+  min-block-size: 100vh;
+  min-block-size: 100dvh;
+  margin-inline: auto;
+  min-inline-size: 0;
+}
+
+/* Static, never sticky: the header can therefore never overlap content. */
+.nv-app .nv-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "brand sync"
+    "user actions";
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 6px;
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: max(12px, env(safe-area-inset-top)) var(--nv-page-gutter) 4px;
+}
+
+.nv-app .nv-brand {
+  grid-area: brand;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-inline-size: 0;
+  color: var(--nv-forest);
+}
+
+.nv-app .nv-brand-mark {
+  display: block;
+  inline-size: 34px;
+  block-size: 24px;
+  color: var(--nv-olive);
+  flex: 0 0 auto;
+}
+
+.nv-app .nv-brand-word {
+  font-size: clamp(20px, 5.6vw, 25px);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.02;
+  color: var(--nv-forest);
+  white-space: nowrap;
+  max-inline-size: 100%;
+}
+
+.nv-app .nv-header-user {
+  grid-area: user;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  color: var(--nv-ink-2);
+}
+
+.nv-app .nv-header-user > svg {
+  flex: 0 0 auto;
+  color: var(--nv-olive);
+}
+
+.nv-app .nv-header-user > span {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nv-app .nv-header-actions {
+  grid-area: actions;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-inline-size: 0;
+}
+
+/* --- sync pill: reflects the real `connection` prop, never a fake status --- */
+
+.nv-app .nv-sync {
+  grid-area: sync;
+  justify-self: end;
+  align-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-block-size: 32px;
+  padding: 5px 11px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.012em;
+  line-height: 1.2;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.nv-app .nv-sync__mark {
+  display: grid;
+  place-items: center;
+  inline-size: 16px;
+  block-size: 16px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.nv-app .nv-sync__glyph {
+  flex: 0 0 auto;
+}
+
+.nv-app .nv-sync--live {
+  background: var(--nv-sage-2);
+  border-color: color-mix(in srgb, var(--nv-olive) 20%, transparent);
+  color: var(--nv-forest);
+}
+
+.nv-app .nv-sync--live .nv-sync__mark {
+  background: var(--nv-forest);
+  color: var(--nv-paper);
+}
+
+.nv-app .nv-sync--connecting {
+  background: var(--nv-warn-bg);
+  border-color: color-mix(in srgb, var(--nv-warn-ink) 22%, transparent);
+  color: var(--nv-warn-ink);
+}
+
+.nv-app .nv-sync--offline {
+  background: color-mix(in srgb, var(--nv-danger) 10%, var(--nv-paper));
+  border-color: color-mix(in srgb, var(--nv-danger) 26%, transparent);
+  color: var(--nv-danger);
+}
+
+/* ------------------------------------------------------------------- main */
+
+.nv-app .nv-main {
+  --nv-pad-x: var(--nv-page-gutter);
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: 4px var(--nv-pad-x) calc(18px + env(safe-area-inset-bottom));
+}
+
+/* For screens that manage their own edge-to-edge content. */
+.nv-app .nv-main--flush {
+  --nv-pad-x: 0px;
+  padding-block-start: 0;
+  gap: 0;
+}
+
+/* ------------------------------------------------------------------- home */
+
+.nv-app .nv-home {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 5vw, 24px);
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding-block: clamp(18px, 7vh, 58px) clamp(18px, 8vh, 72px);
+}
+
+/* Optional intro block (title + supporting line). The reference home image has
+   none, so `NurseHomeScreen` deliberately does not render it; the class exists
+   for screens that want a title block above their content. */
+.nv-app .nv-home-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-inline-size: 0;
+  padding-block-end: 2px;
+}
+
+/* The two big forest cards. Reference image 1: icon square | hairline rule |
+   title + 2-line description, generous spacing, no third tile. */
+.nv-app .nv-home-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(12px, 4vw, 17px);
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: clamp(124px, 33vw, 148px);
+  padding: clamp(16px, 4.6vw, 20px);
+  text-align: start;
+  background-color: var(--nv-forest-lift);
+  color: var(--nv-forest-ink);
+  border: 1px solid color-mix(in srgb, var(--nv-forest-ink) 12%, transparent);
+  border-radius: var(--nv-r-lg);
+  box-shadow: var(--nv-shadow);
+  cursor: pointer;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nv-app .nv-home-card__icon {
+  display: grid;
+  place-items: center;
+  inline-size: clamp(42px, 12.5vw, 56px);
+  block-size: clamp(42px, 12.5vw, 56px);
+  border-radius: var(--nv-r);
+  background: color-mix(in srgb, var(--nv-forest-ink) 11%, transparent);
+  color: var(--nv-forest-ink);
+  flex: 0 0 auto;
+}
+
+.nv-app .nv-home-card__icon svg {
+  display: block;
+}
+
+.nv-app .nv-home-card__rule {
+  inline-size: 1px;
+  block-size: clamp(48px, 15vw, 68px);
+  align-self: center;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--nv-forest-ink) 30%, transparent);
+}
+
+.nv-app .nv-home-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-inline-size: 0;
+}
+
+.nv-app .nv-home-card__title {
+  font-size: clamp(20px, 5.8vw, 25px);
+  font-weight: 800;
+  letter-spacing: -0.018em;
+  line-height: 1.08;
+  color: var(--nv-forest-ink);
+  text-wrap: balance;
+}
+
+.nv-app .nv-home-card__desc {
+  font-size: clamp(13.5px, 3.7vw, 15.5px);
+  font-weight: 500;
+  line-height: 1.42;
+  color: color-mix(in srgb, var(--nv-forest-ink) 80%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.nv-app .nv-home-card:focus-visible {
+  outline: 3px solid var(--nv-paper);
+  outline-offset: 3px;
+}
+
+/* Press acknowledgement that is not a transform, so reduced-motion users still
+   get feedback even though the scale/entrance animations are removed. */
+.nv-app .nv-home-card:active {
+  background-color: color-mix(in srgb, var(--nv-forest-lift) 88%, #000);
+}
+
+@media (hover: hover) {
+  .nv-app .nv-home-card:hover {
+    border-color: color-mix(in srgb, var(--nv-forest-ink) 26%, transparent);
+  }
+}
+
+/* --------------------------------------------------------------- step rail */
+
+.nv-app .nv-steps {
+  display: flex;
+  align-items: flex-start;
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: 2px 2px 0;
+  list-style: none;
+}
+
+.nv-app .nv-step {
+  position: relative;
+  flex: 1 1 0;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.nv-app .nv-step__dot {
+  display: grid;
+  place-items: center;
+  inline-size: var(--nv-step-dot);
+  block-size: var(--nv-step-dot);
+  border: 1.5px solid color-mix(in srgb, var(--nv-olive) 38%, transparent);
+  border-radius: 50%;
+  background: var(--nv-paper);
+  color: var(--nv-olive);
+  transition:
+    background-color 260ms var(--nv-ease),
+    border-color 260ms var(--nv-ease),
+    color 260ms var(--nv-ease);
+}
+
+.nv-app .nv-step--done .nv-step__dot {
+  background: var(--nv-forest);
+  border-color: var(--nv-forest);
+  color: var(--nv-forest-ink);
+}
+
+.nv-app .nv-step--current .nv-step__dot {
+  background: var(--nv-forest);
+  border-color: var(--nv-forest);
+  color: var(--nv-forest-ink);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--nv-olive) 14%, transparent);
+}
+
+.nv-app .nv-step__label {
+  font-size: clamp(12px, 3.3vw, 13.5px);
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--nv-ink-2);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.nv-app .nv-step--current .nv-step__label {
+  font-weight: 800;
+  color: var(--nv-ink);
+}
+
+.nv-app .nv-step--done .nv-step__label {
+  color: var(--nv-ink-2);
+}
+
+/* Connector: from this dot's right edge to the next dot's left edge. Equal-width
+   flex children make that exactly `100% - dot - 2*gap` wide. */
+.nv-app .nv-step__line {
+  position: absolute;
+  inset-inline-start: calc(50% + (var(--nv-step-dot) * 0.5) + 8px);
+  inline-size: calc(100% - var(--nv-step-dot) - 16px);
+  block-size: 1.5px;
+  inset-block-start: calc((var(--nv-step-dot) * 0.5) - 0.75px);
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--nv-olive) 32%, transparent);
+}
+
+.nv-app .nv-step__line--done {
+  background: var(--nv-olive);
+}
+
+/* ---------------------------------------------------------------- surfaces */
+
+/* `.nv-page` is the screen column (title card + action tray); it is deliberately
+   transparent, because every screen puts a `.nv-card` inside it for the paper
+   surface. Painting it would double-frame the card and eat 36px of a 320px
+   viewport. `flex: 1` lets a short screen pin its footer to the bottom. */
+.nv-app .nv-page {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+.nv-app .nv-page > :where(h1, h2) {
+  font-size: clamp(24px, 6.4vw, 30px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  color: var(--nv-ink);
+}
+
+.nv-app .nv-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: 14px;
+  background: var(--nv-paper);
+  border: 1px solid var(--nv-line);
+  border-radius: var(--nv-r);
+}
+
+/* The screen's paper surface: reference images 2–4 radius, padding and the one
+   soft shadow in the app. Inner cards stay flat so they read as sections. */
+.nv-app .nv-page > .nv-card {
+  padding: 18px;
+  border-radius: var(--nv-r-lg);
+  box-shadow: var(--nv-shadow);
+}
+
+.nv-app .nv-card--soft {
+  background: var(--nv-paper-2);
+  border-color: color-mix(in srgb, var(--nv-line) 70%, transparent);
+}
+
+.nv-app .nv-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-inline-size: 0;
+}
+
+.nv-app .nv-section__title {
+  font-size: clamp(17px, 4.6vw, 18px);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.012em;
+  color: var(--nv-ink);
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-inline-size: 0;
+}
+
+.nv-app .nv-section__hint {
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--nv-ink-2);
+}
+
+.nv-app .nv-divider {
+  inline-size: 100%;
+  block-size: 1px;
+  border: 0;
+  margin: 2px 0;
+  background: var(--nv-line);
+}
+
+.nv-app .nv-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 26px 16px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--nv-ink-2);
+  background: color-mix(in srgb, var(--nv-paper-2) 60%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--nv-olive) 26%, transparent);
+  border-radius: var(--nv-r);
+}
+
+.nv-app .nv-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--nv-danger) 86%, var(--nv-ink));
+  background: color-mix(in srgb, var(--nv-danger) 8%, var(--nv-paper));
+  border: 1px solid color-mix(in srgb, var(--nv-danger) 28%, transparent);
+  border-inline-start: 3px solid var(--nv-danger);
+  border-radius: var(--nv-r-sm);
+}
+
+.nv-app .nv-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--nv-forest);
+  background: color-mix(in srgb, var(--nv-sage) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--nv-olive) 18%, transparent);
+  border-radius: 12px;
+  min-inline-size: 0;
+}
+
+.nv-app .nv-notice > svg {
+  flex: 0 0 auto;
+  color: var(--nv-olive);
+}
+
+.nv-app .nv-sr-only {
+  position: absolute !important;
+  inline-size: 1px !important;
+  block-size: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* ------------------------------------------------------------------ fields */
+/* Reference images 2–3: 52px rows, 1px olive hairline, radius 12, leading icon
+   in ink-2, placeholder in ink-2, 16px text (iOS does not zoom at 16px). */
+
+.nv-app .nv-input,
+.nv-app .nv-textarea,
+.nv-app .nv-select,
+.nv-app .nv-search :where(input) {
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 52px;
+  padding: 13px 14px;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--nv-ink);
+  background-color: var(--nv-paper-2);
+  border: 1px solid var(--nv-line);
+  border-radius: 12px;
+  transition:
+    border-color 160ms var(--nv-ease),
+    box-shadow 160ms var(--nv-ease),
+    background-color 160ms var(--nv-ease);
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.nv-app :where(.nv-input, .nv-textarea, .nv-select)::placeholder {
+  color: color-mix(in srgb, var(--nv-ink-2) 78%, transparent);
+  font-weight: 500;
+  opacity: 1;
+}
+
+.nv-app :where(.nv-input, .nv-textarea, .nv-select):hover:not(:focus) {
+  border-color: color-mix(in srgb, var(--nv-olive) 26%, transparent);
+}
+
+.nv-app :where(.nv-input, .nv-textarea, .nv-select, .nv-search input):focus {
+  outline: none;
+  border-color: var(--nv-olive);
+  background-color: var(--nv-paper);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nv-olive) 18%, transparent);
+}
+
+.nv-app .nv-input--icon {
+  padding-inline-start: 42px;
+}
+
+.nv-app .nv-textarea {
+  display: block;
+  min-block-size: 96px;
+  padding-block: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.nv-app .nv-select {
+  padding-inline-end: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23566B3E' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6.5 8 10.5 12 6.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px 16px;
+  cursor: pointer;
+}
+
+.nv-app .nv-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-inline-size: 0;
+}
+
+.nv-app .nv-field__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.012em;
+  line-height: 1.3;
+  color: var(--nv-ink);
+}
+
+.nv-app .nv-field__req {
+  color: color-mix(in srgb, var(--nv-danger) 78%, var(--nv-ink));
+  font-weight: 700;
+}
+
+.nv-app .nv-field__wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.nv-app .nv-field__icon {
+  position: absolute;
+  inset-inline-start: 13px;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--nv-ink-2);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.nv-app .nv-hint {
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--nv-ink-2);
+}
+
+.nv-app .nv-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  min-inline-size: 0;
+}
+
+/* Three vitals stay side by side down to 320px, like reference image 2: inputs
+   are min-width:0 so the grid can never force horizontal overflow. */
+.nv-app .nv-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  min-inline-size: 0;
+}
+
+.nv-app .nv-grid-2 > *,
+.nv-app .nv-grid-3 > * {
+  min-inline-size: 0;
+}
+
+.nv-app .nv-invalid,
+.nv-app .nv-invalid .nv-input,
+.nv-app .nv-invalid .nv-textarea,
+.nv-app .nv-invalid .nv-select {
+  border-color: var(--nv-danger);
+}
+
+.nv-app .nv-invalid :where(.nv-input, .nv-textarea, .nv-select):focus {
+  border-color: var(--nv-danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nv-danger) 18%, transparent);
+}
+
+/* --------------------------------------------------------- chips + segments */
+
+.nv-app .nv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-inline-size: 0;
+}
+
+.nv-app .nv-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-block-size: 44px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--nv-ink);
+  background: var(--nv-sage);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition:
+    background-color 160ms var(--nv-ease),
+    border-color 160ms var(--nv-ease),
+    color 160ms var(--nv-ease);
+}
+
+/* Checkbox / radio drawn inside a chip (no extra markup needed). */
+.nv-app .nv-chip :where(input[type="checkbox"], input[type="radio"]) {
+  inline-size: 19px;
+  block-size: 19px;
+  min-block-size: 19px;
+  margin: 0;
+  flex: 0 0 auto;
+  border: 1.5px solid color-mix(in srgb, var(--nv-olive) 52%, transparent);
+  border-radius: 6px;
+  background-color: var(--nv-paper);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 12px 12px;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.nv-app .nv-chip :where(input[type="radio"]) {
+  border-radius: 50%;
+}
+
+.nv-app .nv-chip :where(input[type="checkbox"]):checked {
+  border-color: var(--nv-forest);
+  background-color: var(--nv-forest);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23F6F3E6' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.4 8.3 6.4 11.2 12.6 4.8'/%3E%3C/svg%3E");
+}
+
+.nv-app .nv-chip :where(input[type="radio"]):checked {
+  border-color: var(--nv-forest);
+  background-color: var(--nv-forest);
+  box-shadow: inset 0 0 0 3.5px var(--nv-paper);
+}
+
+.nv-app .nv-chip :where(input):focus-visible {
+  outline: 2px solid var(--nv-focus);
+  outline-offset: 2px;
+}
+
+.nv-app .nv-chip--on,
+.nv-app .nv-chip:has(input:checked) {
+  background: var(--nv-sage-2);
+  border-color: color-mix(in srgb, var(--nv-forest) 34%, transparent);
+  color: var(--nv-forest);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nv-forest) 18%, transparent);
+}
+
+.nv-app .nv-seg {
+  display: flex;
+  gap: 4px;
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: 4px;
+  background: var(--nv-paper-2);
+  border: 1px solid var(--nv-line);
+  border-radius: 999px;
+}
+
+.nv-app .nv-seg__opt {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  min-block-size: 44px;
+  padding: 0 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--nv-ink-2);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    background-color 160ms var(--nv-ease),
+    color 160ms var(--nv-ease);
+}
+
+.nv-app .nv-seg__opt--on {
+  background: var(--nv-forest);
+  color: var(--nv-forest-ink);
+  border-color: var(--nv-forest);
+}
+
+/* ----------------------------------------------------------------- buttons */
+
+.nv-app .nv-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 52px;
+  padding: 0 18px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.002em;
+  text-align: center;
+  text-decoration: none;
+  color: var(--nv-ink);
+  background: var(--nv-paper);
+  border: 1px solid var(--nv-line);
+  border-radius: 14px;
+  cursor: pointer;
+  appearance: none;
+  transition:
+    background-color 180ms var(--nv-ease),
+    border-color 180ms var(--nv-ease),
+    color 180ms var(--nv-ease),
+    transform 120ms var(--nv-ease),
+    opacity 180ms var(--nv-ease);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nv-app .nv-btn:active:not(:disabled) {
+  transform: scale(0.986);
+}
+
+.nv-app .nv-btn:disabled,
+.nv-app .nv-btn[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nv-app .nv-btn--primary {
+  background: var(--nv-forest);
+  color: var(--nv-forest-ink);
+  border-color: color-mix(in srgb, var(--nv-forest) 78%, #000);
+}
+
+.nv-app .nv-btn--ghost {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--nv-olive) 36%, transparent);
+  color: var(--nv-forest);
+}
+
+.nv-app .nv-btn--quiet {
+  background: var(--nv-sage);
+  border-color: transparent;
+  color: var(--nv-forest);
+}
+
+.nv-app .nv-btn--danger-tint {
+  background: color-mix(in srgb, var(--nv-danger) 10%, var(--nv-paper));
+  border-color: color-mix(in srgb, var(--nv-danger) 26%, transparent);
+  color: color-mix(in srgb, var(--nv-danger) 88%, var(--nv-ink));
+}
+
+.nv-app .nv-btn--sm {
+  inline-size: auto;
+  min-block-size: 44px;
+  padding: 0 14px;
+  gap: 6px;
+  font-size: 13.5px;
+  border-radius: 12px;
+}
+
+.nv-app .nv-btn-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.nv-app .nv-btn-row > .nv-btn {
+  flex: 1 1 0;
+  inline-size: auto;
+  min-inline-size: 0;
+}
+
+@media (hover: hover) {
+  .nv-app .nv-btn--primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--nv-forest) 88%, #000);
+  }
+
+  .nv-app .nv-btn--ghost:hover:not(:disabled),
+  .nv-app .nv-btn--quiet:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--nv-olive) 56%, transparent);
+  }
+}
+
+/* Icon-only control (sign out). 44x44 exactly. */
+.nv-app .nv-iconbtn {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 44px;
+  block-size: 44px;
+  min-inline-size: 44px;
+  min-block-size: 44px;
+  padding: 0;
+  border-radius: 999px;
+  background: var(--nv-paper);
+  border: 1px solid color-mix(in srgb, var(--nv-olive) 30%, transparent);
+  color: var(--nv-forest);
+  cursor: pointer;
+  appearance: none;
+  transition:
+    background-color 160ms var(--nv-ease),
+    border-color 160ms var(--nv-ease),
+    transform 120ms var(--nv-ease);
+}
+
+.nv-app .nv-iconbtn:active {
+  transform: scale(0.94);
+}
+
+.nv-app .nv-iconbtn:hover {
+  border-color: color-mix(in srgb, var(--nv-olive) 55%, transparent);
+}
+
+/* ----------------------------------------------------------------- capture */
+/* Reference image 3: soft square icon, title + 2-line hint, sage waveform strip
+   with duration, then a Record / Play / Retry action row. */
+
+.nv-app .nv-capture {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: 16px;
+  background: var(--nv-paper);
+  border: 1px solid var(--nv-line);
+  border-radius: var(--nv-r);
+}
+
+.nv-app .nv-capture__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-inline-size: 0;
+}
+
+.nv-app .nv-capture__head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.nv-app .nv-capture__title {
+  font-size: clamp(16px, 4.4vw, 17px);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--nv-ink);
+}
+
+.nv-app .nv-capture__hint {
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--nv-ink-2);
+}
+
+.nv-app .nv-wave {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  inline-size: 100%;
+  min-inline-size: 0;
+  block-size: 64px;
+  padding: 0 14px;
+  background: var(--nv-paper-2);
+  border: 1px solid var(--nv-line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.nv-app .nv-wave__bar {
+  flex: 1 1 2px;
+  max-inline-size: 5px;
+  min-inline-size: 2px;
+  min-block-size: 3px;
+  height: 18%;
+  border-radius: 999px;
+  background: var(--nv-forest);
+  transition: height 120ms linear;
+}
+
+.nv-app .nv-rec {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-block-size: 64px;
+  min-inline-size: 44px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--nv-forest-ink);
+  background: var(--nv-forest);
+  border: 1px solid color-mix(in srgb, var(--nv-forest) 78%, #000);
+  border-radius: 14px;
+  cursor: pointer;
+  appearance: none;
+  transition:
+    background-color 160ms var(--nv-ease),
+    color 160ms var(--nv-ease);
+}
+
+.nv-app .nv-rec--live {
+  background: var(--nv-danger);
+  border-color: color-mix(in srgb, var(--nv-danger) 80%, #000);
+  color: #fff;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--nv-danger) 16%, transparent);
+}
+
+.nv-app .nv-rec__timer {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.nv-app .nv-capture__actions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.nv-app .nv-capture__actions > * {
+  min-inline-size: 0;
+}
+
+.nv-app .nv-duration {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  color: var(--nv-ink);
+  white-space: nowrap;
+}
+
+.nv-app .nv-wave .nv-duration {
+  margin-inline-start: auto;
+  padding-inline-start: 12px;
+  border-inline-start: 1px solid var(--nv-line);
+  align-self: stretch;
+}
+
+/* ------------------------------------------------------ tabs / rows / search */
+
+.nv-app .nv-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.nv-app .nv-tabs__list {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 4px;
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: 4px;
+  background: color-mix(in srgb, var(--nv-paper-2) 62%, transparent);
+  border: 1px solid var(--nv-line);
+  border-radius: 999px;
+}
+
+.nv-app .nv-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-inline-size: 0;
+  min-block-size: 44px;
+  /* Shares the available width, but a label that still does not fit WRAPS
+     instead of being ellipsised — "Doctor Reviews" must stay readable at
+     320px, and a clipped tab name is worse than a two-line one. */
+  flex: 1 1 auto;
+  padding: 0 8px;
+  font-size: clamp(12px, 3.4vw, 13.5px);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--nv-ink);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+  transition:
+    background-color 180ms var(--nv-ease),
+    color 180ms var(--nv-ease);
+}
+
+.nv-app .nv-tab svg {
+  flex: 0 0 auto;
+}
+
+.nv-app .nv-tab--on {
+  background: var(--nv-forest);
+  border-color: var(--nv-forest);
+  color: var(--nv-forest-ink);
+  font-weight: 700;
+}
+
+.nv-app .nv-tab__label {
+  min-inline-size: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.nv-app .nv-tab__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 20px;
+  block-size: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--nv-forest);
+  background: color-mix(in srgb, var(--nv-forest) 12%, transparent);
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.nv-app .nv-tab--on .nv-tab__count {
+  color: var(--nv-forest-ink);
+  background: color-mix(in srgb, var(--nv-forest-ink) 24%, transparent);
+}
+
+.nv-app .nv-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.nv-app .nv-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 64px;
+  padding: 12px 14px;
+  text-align: start;
+  background: var(--nv-paper);
+  border: 1px solid var(--nv-line);
+  border-radius: var(--nv-r);
+  cursor: pointer;
+  appearance: none;
+  transition:
+    background-color 180ms var(--nv-ease),
+    border-color 180ms var(--nv-ease);
+}
+
+.nv-app .nv-row--on {
+  background: var(--nv-sage);
+  border-color: color-mix(in srgb, var(--nv-forest) 46%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nv-forest) 20%, transparent);
+}
+
+@media (hover: hover) {
+  .nv-app .nv-row:hover {
+    border-color: color-mix(in srgb, var(--nv-olive) 42%, transparent);
+  }
+}
+
+.nv-app .nv-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.nv-app .nv-row__title {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.008em;
+  color: var(--nv-ink);
+  overflow-wrap: anywhere;
+  /* A patient's name is clinical identity: two lines beat an ellipsis every
+     time, so this overrides the `truncate` utility at the call site. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+  overflow: hidden;
+}
+
+.nv-app .nv-row__meta {
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--nv-ink-2);
+  overflow-wrap: anywhere;
+}
+
+/* Date above badge on phones (a 320–430px row has no room for both beside the
+   name); side by side from 520px, where the reference layout has space. */
+.nv-app .nv-row__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  padding-inline-start: 12px;
+  border-inline-start: 1px solid var(--nv-line);
+  min-inline-size: 0;
+}
+
+@media (min-width: 520px) {
+  .nv-app .nv-row__right {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+}
+
+.nv-app .nv-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-block-size: 26px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  border-radius: 999px;
+}
+
+.nv-app .nv-badge > svg {
+  flex: 0 0 auto;
+}
+
+.nv-app .nv-badge--pending {
+  background: var(--nv-warn-bg);
+  border-color: color-mix(in srgb, var(--nv-warn-ink) 20%, transparent);
+  color: var(--nv-warn-ink);
+}
+
+.nv-app .nv-badge--reviewed {
+  background: var(--nv-sage-2);
+  border-color: color-mix(in srgb, var(--nv-ok) 22%, transparent);
+  color: var(--nv-ok);
+}
+
+.nv-app .nv-badge--referral {
+  background: color-mix(in srgb, var(--nv-danger) 10%, var(--nv-paper));
+  border-color: color-mix(in srgb, var(--nv-danger) 26%, transparent);
+  color: var(--nv-danger);
+}
+
+.nv-app .nv-badge--neutral {
+  background: var(--nv-paper-2);
+  border-color: var(--nv-line);
+  color: var(--nv-ink-2);
+}
+
+.nv-app .nv-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.nv-app .nv-search :where(input) {
+  padding-inline-start: 42px;
+  background-color: var(--nv-paper-2);
+}
+
+/* The roster search carries a clear button on the trailing edge; reserve its
+   footprint without padding every other input. */
+.nv-app .nv-search .nv-input {
+  padding-inline-end: 48px;
+}
+
+.nv-app .nv-search__icon {
+  position: absolute;
+  inset-inline-start: 14px;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  color: var(--nv-ink-2);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ---------------------------------------------------- feedback / key-values */
+
+.nv-app .nv-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: 14px;
+  background: color-mix(in srgb, var(--nv-sage) 72%, var(--nv-paper));
+  border: 1px solid color-mix(in srgb, var(--nv-olive) 18%, transparent);
+  border-radius: var(--nv-r);
+}
+
+.nv-app .nv-feedback__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-inline-size: 0;
+  padding-block-end: 10px;
+  border-block-end: 1px solid var(--nv-line);
+}
+
+.nv-app .nv-feedback__head > svg {
+  flex: 0 0 auto;
+  color: var(--nv-olive);
+}
+
+.nv-app .nv-feedback__title {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  font-size: clamp(16px, 4.4vw, 17px);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--nv-ink);
+  overflow-wrap: anywhere;
+}
+
+.nv-app .nv-feedback__status {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+}
+
+.nv-app .nv-kv {
+  display: grid;
+  grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  min-inline-size: 0;
+  padding-block: 11px;
+  border-block-start: 1px solid var(--nv-line);
+}
+
+.nv-app .nv-kv:first-of-type {
+  padding-block-start: 0;
+  border-block-start: 0;
+}
+
+.nv-app .nv-kv__k {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-inline-size: 0;
+  font-size: 13.5px;
+  font-weight: 650;
+  line-height: 1.4;
+  color: var(--nv-ink);
+  overflow-wrap: anywhere;
+}
+
+.nv-app .nv-kv__k > svg {
+  flex: 0 0 auto;
+  color: var(--nv-olive);
+}
+
+.nv-app .nv-kv__v {
+  min-inline-size: 0;
+  padding-inline-start: 12px;
+  border-inline-start: 1px solid var(--nv-line);
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--nv-ink);
+  overflow-wrap: anywhere;
+}
+
+.nv-app .nv-prob {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-inline-size: 0;
+}
+
+.nv-app .nv-prob__bar {
+  inline-size: 100%;
+  block-size: 8px;
+  background: color-mix(in srgb, var(--nv-olive) 14%, transparent);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.nv-app .nv-prob__fill {
+  width: 0;
+  height: 100%;
+  background: var(--nv-forest);
+  border-radius: inherit;
+  transition: width 420ms var(--nv-ease);
+}
+
+/* ------------------------------------------------------------------ footer */
+/* Sticky action tray. Sits above `env(safe-area-inset-bottom)` and keeps an
+   opaque paper face so scrolled content never shows through the buttons. */
+
+.nv-app .nv-footer {
+  position: sticky;
+  inset-block-end: calc(10px + env(safe-area-inset-bottom));
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  inline-size: 100%;
+  min-inline-size: 0;
+  margin-block-start: auto;
+  padding: 10px;
+  background: var(--nv-paper);
+  border: 1px solid var(--nv-line);
+  border-radius: var(--nv-r);
+  box-shadow: var(--nv-shadow);
+}
+
+/* `--split` covers both shapes a caller can write: buttons as direct children
+   get equal side-by-side columns, while a footer that carries its own status
+   line plus a `.nv-btn-row` keeps stacking (the row inside already splits).
+   Without `:has()` support the stacked fallback is the safe one. */
+.nv-app .nv-footer--split {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.nv-app .nv-footer--split:not(:has(.nv-btn-row)) {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.nv-app .nv-footer--split > * {
+  min-inline-size: 0;
+}
+
+.nv-app .nv-footer--split:not(:has(.nv-btn-row)) > * {
+  flex: 1 1 0;
+}
+
+/* ------------------------------------------------------------- interaction */
+
+.nv-app :where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--nv-focus);
+  outline-offset: 2px;
+}
+
+.nv-app :where(.nv-input, .nv-textarea, .nv-select, .nv-search input):focus-visible {
+  outline: none;
+}
+
+/* ------------------------------------------------------- motion + a11y nets */
+
+@media (prefers-reduced-motion: reduce) {
+  .nv-app *,
+  .nv-app *::before,
+  .nv-app *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* JS already withholds the film; this is the belt-and-braces CSS layer. */
+  .nv-app .nv-backdrop__video {
+    display: none !important;
+  }
+}
+
+/* ---------------------------------------------------------------- ≥ 768px */
+/* The card stays narrow; the meadow fills the rest of the viewport. */
+
+@media (min-width: 768px) {
+  .nv-app {
+    --nv-page-gutter: 22px;
+  }
+
+  .nv-app .nv-shell {
+    max-inline-size: 520px;
+  }
+
+  .nv-app .nv-header {
+    padding-block-start: 20px;
+  }
+
+  .nv-app .nv-home {
+    gap: 20px;
+    padding-block: clamp(28px, 8vh, 72px);
+  }
+
+  .nv-app .nv-brand-word {
+    font-size: 26px;
+  }
+
+  .nv-app .nv-page {
+    padding: 22px;
+  }
+}
+
+/* Very narrow phones (320px): tighten the header pill and tab labels rather
+   than letting anything ellipsis into the sync pill. */
+@media (max-width: 359px) {
+  .nv-app .nv-sync {
+    padding-inline: 10px;
+    font-size: 11.5px;
+  }
+
+  .nv-app .nv-tab {
+    gap: 5px;
+    padding-inline: 8px;
+    font-size: 12.5px;
+  }
+
+  .nv-app .nv-tab__count {
+    display: none;
+  }
+
+  .nv-app .nv-header-user {
+    font-size: 12px;
+  }
+
+  /* Two 15px buttons plus icons do not fit a 320px action row; drop a point
+     rather than let labels wrap into three lines. */
+  .nv-app .nv-btn {
+    padding-inline: 12px;
+    font-size: 14px;
+  }
+
+  .nv-app .nv-capture {
+    padding: 14px;
+  }
+}
+
+/* ------------------------------------------------- corrective pass (QA fixes) --
+
+   1. The sex segmented control must not ellipsise its own options on a 320px
+      phone (it measured ~34px per option with a 13px text box).
+   2. The attach control wraps a visually hidden file input in a <label>; the
+      global ring lands on the 1px input, so the label has to carry it. */
+@media (max-width: 359px) {
+  .nv-app .nv-seg__opt {
+    padding-inline: 2px;
+    font-size: 12.5px;
+    letter-spacing: -0.01em;
+  }
+
+  .nv-app .nv-tab {
+    padding-inline: 6px;
+  }
+}
+
+.nv-app label:has(> input[type="file"]:focus-visible) {
+  outline: 3px solid var(--nv-focus);
+  outline-offset: 2px;
+}
