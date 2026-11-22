@@ -1,15 +1,15 @@
 /**
- * Mistral Field — nurse shell.
+ * Mistral — nurse shell.
  *
  * Owns the page frame only: the `.nv-app` token scope, the meadow backdrop, the
  * header, and the scroll region. Business logic, Convex calls and step state
  * stay in the orchestrator; this file never fetches anything.
  *
- * Header follows reference image 1: the olive leaf mark above the "Mistral
- * Field" wordmark on the left, a sync pill on the right whose tone and label
- * come straight from the real `connection` prop (no invented status), then a
- * quiet identity/action row — "Back to home" only when `flow !== "home"`, and an
- * always-available 44px sign-out control.
+ * Header follows reference image 1: the "Mistral" wordmark on the left, a sync
+ * pill on the right whose tone and label come straight from the real
+ * `connection` prop (no invented status), then a quiet identity/action row —
+ * "Back to home" only when `flow !== "home"`, and an always-available 44px
+ * sign-out control.
  *
  * The header is intentionally NOT sticky: scrolling content can never pass
  * under it. `nurse.css` is imported here and only here.
@@ -41,33 +41,7 @@ export function NurseShell({
       <div className="nv-shell">
         <header className="nv-header">
           <div className="nv-brand">
-            <svg
-              className="nv-brand-mark"
-              viewBox="0 0 34 24"
-              fill="none"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path
-                d="M2.2 19.6c4.2-4.6 9.3-7 14.8-6.7 4.9.3 9.2 2.1 12.9 5"
-                stroke="currentColor"
-                strokeWidth={2.4}
-                strokeLinecap="round"
-              />
-              <path
-                d="M5.4 14.4c3.9-4.2 8.6-6.4 13.6-6.1 4.2.3 7.9 1.8 11 4.2"
-                stroke="currentColor"
-                strokeWidth={2.4}
-                strokeLinecap="round"
-              />
-              <path
-                d="M8.8 9.2c3.5-3.7 7.6-5.5 11.9-5.2 3.4.2 6.4 1.3 8.8 3.1"
-                stroke="currentColor"
-                strokeWidth={2.4}
-                strokeLinecap="round"
-              />
-            </svg>
-            <span className="nv-brand-word">Mistral Field</span>
+            <span className="nv-brand-word">Mistral</span>
           </div>
 
           <span

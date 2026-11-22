@@ -52,9 +52,9 @@ d05658114f015ab0e2cd6194fda147363f8dae19aef6053de9027ac54ac4afc5  mistral-ui-pac
 4ec19f42d57a4dbd6c1ce2e68e23275cdeb78d9c28303e9291d5e6ae6203f901  mistral-ui-package/mistral-ui/src/nurse/contract.ts
 65423581f1dac4d41c978238f6906e44a6f20b14cd8b7f06f1be949bb4f80a5d  mistral-ui-package/mistral-ui/src/nurse/MeadowBackdrop.tsx
 831689d27dde083427ec8010dea68ba89691b4ca62a2d603725a108ee78ace2f  mistral-ui-package/mistral-ui/src/nurse/NewEntryScreen.tsx
-4acce480fde5882cdf17088ee65eb4767165d932b3f58755d795a39e66a97f9e  mistral-ui-package/mistral-ui/src/nurse/nurse.css
+20700459c4262a043ca3915b1daa2c90e2982e089caa9985983567c84a6d4c6f  mistral-ui-package/mistral-ui/src/nurse/nurse.css
 48b0b9537126f1fd5cd7377318b9796e181b19a13ed7cc6491361ef6ab280073  mistral-ui-package/mistral-ui/src/nurse/NurseHomeScreen.tsx
-d186760e48177f95feb413eee914ca55e1b4654bfb5828cea6681b4f62fe481e  mistral-ui-package/mistral-ui/src/nurse/NurseShell.tsx
+11b700a34efd532566df33273364c93ccd44f403d15ef1fefcc6261316ad3d67  mistral-ui-package/mistral-ui/src/nurse/NurseShell.tsx
 821f2c193ff7071e8bf8c28e9a6bc91a703d2d900951cb1244b1f24feeb992a8  mistral-ui-package/mistral-ui/src/nurse/NurseStepRail.tsx
 d9f786f7e718d740b30b2ddd7468c86452869635691fcbf54830d42683293dd0  mistral-ui-package/mistral-ui/src/nurse/PatientFeedbackPanel.tsx
 d36fca783007ec99e6088d0fac078ae88285caa476a40f549eba4e5f2c2ce483  mistral-ui-package/mistral-ui/src/nurse/PatientsReviewsScreen.tsx
